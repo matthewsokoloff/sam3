@@ -151,3 +151,13 @@ Thumbs.db
 # BPE vocabulary files
 *.bpe
 *.vocab
+
+# Adversarial-light research files
+checkpoints/
+outputs/
+data/
+*.pt
+*.pth
+*.ckpt
+__pycache__/
+.ipynb_checkpoints/
