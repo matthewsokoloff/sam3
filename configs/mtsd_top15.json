@@ -1,0 +1,65 @@
+{
+  "generic_prompt": "traffic sign",
+  "classes": [
+    {
+      "label": "regulatory--yield--g1",
+      "prompt": "yield sign"
+    },
+    {
+      "label": "information--pedestrians-crossing--g1",
+      "prompt": "pedestrian crossing information sign"
+    },
+    {
+      "label": "regulatory--no-entry--g1",
+      "prompt": "no entry sign"
+    },
+    {
+      "label": "complementary--chevron-left--g1",
+      "prompt": "left chevron traffic sign"
+    },
+    {
+      "label": "complementary--chevron-right--g1",
+      "prompt": "right chevron traffic sign"
+    },
+    {
+      "label": "information--parking--g1",
+      "prompt": "parking sign"
+    },
+    {
+      "label": "regulatory--stop--g1",
+      "prompt": "stop sign"
+    },
+    {
+      "label": "regulatory--keep-right--g1",
+      "prompt": "keep right sign"
+    },
+    {
+      "label": "regulatory--no-stopping--g15",
+      "prompt": "no stopping sign"
+    },
+    {
+      "label": "regulatory--priority-road--g4",
+      "prompt": "priority road sign"
+    },
+    {
+      "label": "regulatory--no-parking--g1",
+      "prompt": "no parking sign"
+    },
+    {
+      "label": "warning--pedestrians-crossing--g4",
+      "prompt": "pedestrian crossing warning sign"
+    },
+    {
+      "label": "regulatory--maximum-speed-limit-40--g1",
+      "prompt": "40 speed limit sign"
+    },
+    {
+      "label": "regulatory--maximum-speed-limit-30--g1",
+      "prompt": "30 speed limit sign"
+    },
+    {
+      "label": "regulatory--maximum-speed-limit-50--g1",
+      "prompt": "50 speed limit sign"
+    }
+  ]
+}
