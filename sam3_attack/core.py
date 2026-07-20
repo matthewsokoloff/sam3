@@ -32,6 +32,9 @@ class AttackConfig:
     amp: str = "auto"
     seed: int = 0
     early_stop_iou: float = 0.05
+    perturbation_mode: str = "standard"
+    smooth_kernel_size: int = 31
+    smooth_sigma: float = 7.0
 
 
 @dataclass
@@ -222,6 +225,83 @@ def project_delta(clean: torch.Tensor, delta: torch.Tensor, epsilon: float) -> t
     return torch.clamp(clean + delta, 0.0, 1.0) - clean
 
 
+def gaussian_blur_delta(
+    delta: torch.Tensor,
+    kernel_size: int,
+    sigma: float,
+) -> torch.Tensor:
+    """Apply the same Gaussian smoothing kernel to each RGB channel."""
+    _require(
+        kernel_size > 0 and kernel_size % 2 == 1,
+        "Smooth kernel size must be a positive odd integer",
+    )
+    _require(sigma > 0.0, "Smooth sigma must be positive")
+
+    radius = kernel_size // 2
+    _require(
+        delta.shape[-2] > radius and delta.shape[-1] > radius,
+        "Smooth kernel is too large for this image",
+    )
+
+    coordinates = torch.arange(
+        kernel_size,
+        device=delta.device,
+        dtype=delta.dtype,
+    )
+    coordinates = coordinates - radius
+
+    kernel_1d = torch.exp(
+        -(coordinates.square()) / (2.0 * sigma * sigma)
+    )
+    kernel_1d = kernel_1d / kernel_1d.sum()
+
+    kernel_2d = kernel_1d[:, None] * kernel_1d[None, :]
+    weight = kernel_2d[None, None].expand(
+        delta.shape[1],
+        1,
+        kernel_size,
+        kernel_size,
+    )
+
+    padded = F.pad(
+        delta,
+        (radius, radius, radius, radius),
+        mode="reflect",
+    )
+
+    return F.conv2d(
+        padded,
+        weight,
+        groups=delta.shape[1],
+    )
+
+
+def project_delta_for_mode(
+    clean: torch.Tensor,
+    delta: torch.Tensor,
+    epsilon: float,
+    config: AttackConfig,
+) -> torch.Tensor:
+    """Apply the constraint associated with the selected attack mode."""
+    if config.perturbation_mode == "standard":
+        return project_delta(clean, delta, epsilon)
+
+    _require(
+        config.perturbation_mode in {"additive", "smooth_additive"},
+        f"Unknown perturbation mode: {config.perturbation_mode}",
+    )
+
+    if config.perturbation_mode == "smooth_additive":
+        delta = gaussian_blur_delta(
+            delta,
+            config.smooth_kernel_size,
+            config.smooth_sigma,
+        )
+
+    delta = delta.clamp(0.0, epsilon)
+    return torch.clamp(clean + delta, 0.0, 1.0) - clean
+
+
 def build_clean_targets(
     model: torch.nn.Module,
     clean_image: torch.Tensor,
@@ -310,12 +390,36 @@ def run_attack(
     epsilon = config.epsilon_pixels / 255.0
     step_size = config.step_size_pixels / 255.0
 
+    _require(
+        config.perturbation_mode
+        in {"standard", "additive", "smooth_additive"},
+        f"Unknown perturbation mode: {config.perturbation_mode}",
+    )
+
     best: AttackResult | None = None
 
     for restart in range(config.restarts):
         generator = torch.Generator(device="cuda").manual_seed(config.seed + restart)
-        delta = torch.empty_like(clean_image).uniform_(-epsilon, epsilon, generator=generator)
-        delta = project_delta(clean_image, delta, epsilon).detach().requires_grad_(True)
+
+        if config.perturbation_mode == "standard":
+            delta = torch.empty_like(clean_image).uniform_(
+                -epsilon,
+                epsilon,
+                generator=generator,
+            )
+        else:
+            delta = torch.empty_like(clean_image).uniform_(
+                0.0,
+                epsilon,
+                generator=generator,
+            )
+
+        delta = project_delta_for_mode(
+            clean_image,
+            delta,
+            epsilon,
+            config,
+        ).detach().requires_grad_(True)
         velocity = torch.zeros_like(delta)
         history: list[dict[str, float | int]] = []
 
@@ -358,7 +462,13 @@ def run_attack(
 
             with torch.no_grad():
                 delta = delta - step_size * velocity.sign()
-                delta = project_delta(clean_image, delta, epsilon)
+                delta = project_delta_for_mode(
+                    clean_image,
+                    delta,
+                    epsilon,
+                    config,
+                )
+
             delta = delta.detach().requires_grad_(True)
 
             mean_dice = sum(m["dice"] for m in metric_rows) / len(metric_rows)

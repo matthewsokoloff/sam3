@@ -39,6 +39,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--amp", choices=("auto", "bf16", "fp16", "none"), default="auto")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--mode",
+        choices=("standard", "additive", "smooth_additive"),
+        default="standard",
+    )
+    parser.add_argument("--smooth-kernel-size", type=int, default=31)
+    parser.add_argument("--smooth-sigma", type=float, default=7.0)
     return parser.parse_args()
 
 
@@ -57,6 +64,9 @@ def main() -> None:
         confidence_threshold=args.threshold,
         amp=args.amp,
         seed=args.seed,
+        perturbation_mode=args.mode,
+        smooth_kernel_size=args.smooth_kernel_size,
+        smooth_sigma=args.smooth_sigma,
     )
 
     # Load the 848M-parameter model once, then reuse it for every image.
@@ -80,6 +90,9 @@ def main() -> None:
                     "steps": config.steps,
                     "restarts": config.restarts,
                     "seed": config.seed,
+                    "perturbation_mode": config.perturbation_mode,
+                    "smooth_kernel_size": config.smooth_kernel_size,
+                    "smooth_sigma": config.smooth_sigma,
                     "torch_version": torch.__version__,
                     "gpu": torch.cuda.get_device_name(0),
                 },
