@@ -651,6 +651,20 @@ def main() -> None:
                             flush=True,
                         )
 
+                    except torch.cuda.OutOfMemoryError:
+                        print(
+                            f"CUDA OUT OF MEMORY: {attack_id} "
+                            f"{mode} epsilon={epsilon:g}. "
+                            "Stopping this process."
+                        )
+                        log_error(
+                            errors_path,
+                            attack_id,
+                            mode,
+                            epsilon,
+                        )
+                        raise
+
                     except Exception:
                         print(
                             f"FAILED: {attack_id} "
